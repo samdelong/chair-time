@@ -19,9 +19,6 @@ cd web
 npm start
 ```
 
-The page will be at [http://localhost:4280](http://localhost:4280). The server
-listens on the local network so the Pico can reach it.
-
 ## Setting up the Pico
 
 The Pico needs two files in its root directory:
