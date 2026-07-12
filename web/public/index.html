@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Chair Time</title>
     <meta name="theme-color" content="#07110d">
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="__BASE_PATH__/styles.css">
   </head>
   <body class="is-away">
     <main class="stage" aria-live="polite">
@@ -45,6 +45,9 @@
       </section>
     </main>
 
-    <script src="/app.js"></script>
+    <script>
+      window.CHAIRTIME_BASE_PATH = "__BASE_PATH__";
+    </script>
+    <script src="__BASE_PATH__/app.js"></script>
   </body>
 </html>

@@ -7,6 +7,7 @@ const weekTotal = document.querySelector("#weekTotal");
 const weekBars = document.querySelector("#weekBars");
 const params = new URLSearchParams(window.location.search);
 const isWidget = params.get("widget") === "true";
+const basePath = window.CHAIRTIME_BASE_PATH || "";
 
 document.body.classList.toggle("is-widget", isWidget);
 
@@ -183,7 +184,7 @@ function renderWidgetChart(stats, maxSeconds) {
 
 async function fetchStatus() {
   try {
-    const response = await fetch("/api/stats", { cache: "no-store" });
+    const response = await fetch(`${basePath}/api/stats`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error("Could not load status");
     }

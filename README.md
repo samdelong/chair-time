@@ -18,6 +18,8 @@ You'll need Node 18 or newer.
 #optional host and port
 export HOST=0.0.0.0
 export PORT=4280
+# optional reverse proxy mount path, for example when serving at /chairtime
+export CHAIRTIME_BASE_PATH=/chairtime
 npm start
 ```
 

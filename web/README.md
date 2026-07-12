@@ -14,6 +14,17 @@ export PORT=8080
 npm start
 ```
 
+If the site is mounted under a reverse proxy path, set `CHAIRTIME_BASE_PATH`:
+
+```sh
+export CHAIRTIME_BASE_PATH=/chairtime
+npm start
+```
+
+With that set, the browser UI, assets, and iframe widget are served under
+`/chairtime`. The root `/api/...` endpoints still work for devices that post
+directly to the Node server.
+
 ## Widget embed
 
 Load the compact iframe view with `?widget=true`:

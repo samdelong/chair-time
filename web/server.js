@@ -8,6 +8,7 @@ const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "events.json");
 const apiToken = process.env.CHAIRTIME_API_TOKEN || "";
+const basePath = normalizeBasePath(process.env.CHAIRTIME_BASE_PATH || "");
 const adjustmentThresholdMs = 5000;
 const heartbeatTimeoutMs = 30000;
 
@@ -29,6 +30,90 @@ const contentTypes = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml"
 };
+
+function normalizeBasePath(value) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "/") {
+    return "";
+  }
+
+  return `/${trimmed.replace(/^\/+|\/+$/g, "")}`;
+}
+
+function getRequestContext(req) {
+  const url = new URL(req.url, "http://chairtime.local");
+  const pathname = decodeURIComponent(url.pathname);
+
+  if (!basePath) {
+    return {
+      pathname,
+      search: url.search,
+      routePath: pathname,
+      inBasePath: true,
+      needsSlashRedirect: false
+    };
+  }
+
+  if (pathname === "/") {
+    return {
+      pathname,
+      search: url.search,
+      routePath: "/",
+      inBasePath: true,
+      needsBaseRedirect: true,
+      needsSlashRedirect: false
+    };
+  }
+
+  if (pathname === "/health" || pathname.startsWith("/api/")) {
+    return {
+      pathname,
+      search: url.search,
+      routePath: pathname,
+      inBasePath: true,
+      needsBaseRedirect: false,
+      needsSlashRedirect: false
+    };
+  }
+
+  if (pathname === basePath) {
+    return {
+      pathname,
+      search: url.search,
+      routePath: "/",
+      inBasePath: true,
+      needsBaseRedirect: false,
+      needsSlashRedirect: true
+    };
+  }
+
+  if (pathname.startsWith(`${basePath}/`)) {
+    return {
+      pathname,
+      search: url.search,
+      routePath: pathname.slice(basePath.length) || "/",
+      inBasePath: true,
+      needsBaseRedirect: false,
+      needsSlashRedirect: false
+    };
+  }
+
+  return {
+    pathname,
+    search: url.search,
+    routePath: pathname,
+    inBasePath: false,
+    needsBaseRedirect: false,
+    needsSlashRedirect: false
+  };
+}
+
+function sendRedirect(res, location) {
+  res.writeHead(308, {
+    Location: location
+  });
+  res.end();
+}
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -338,8 +423,8 @@ function updateChairStatus(sitting, source) {
   };
 }
 
-async function handleApi(req, res) {
-  if (req.method === "GET" && req.url === "/api/status") {
+async function handleApi(req, res, routePath) {
+  if (req.method === "GET" && routePath === "/api/status") {
     sendJson(res, 200, {
       ...appState.chairStatus,
       sensor: getSensorStatus(new Date())
@@ -347,12 +432,12 @@ async function handleApi(req, res) {
     return true;
   }
 
-  if (req.method === "GET" && req.url === "/api/stats") {
+  if (req.method === "GET" && routePath === "/api/stats") {
     sendJson(res, 200, getStats());
     return true;
   }
 
-  if (req.method === "POST" && req.url === "/api/status") {
+  if (req.method === "POST" && routePath === "/api/status") {
     if (!isAuthorized(req)) {
       sendJson(res, 401, { error: "Unauthorized" });
       return true;
@@ -384,7 +469,7 @@ async function handleApi(req, res) {
     return true;
   }
 
-  if (req.method === "GET" && req.url === "/health") {
+  if (req.method === "GET" && routePath === "/health") {
     sendJson(res, 200, { ok: true });
     return true;
   }
@@ -392,10 +477,13 @@ async function handleApi(req, res) {
   return false;
 }
 
-async function serveStatic(req, res) {
-  const rawPath = req.url === "/" ? "/index.html" : req.url.split("?")[0];
-  const decodedPath = decodeURIComponent(rawPath);
-  const filePath = path.normalize(path.join(publicDir, decodedPath));
+function renderIndexHtml(file) {
+  return file.toString("utf8").replaceAll("__BASE_PATH__", basePath);
+}
+
+async function serveStatic(routePath, res) {
+  const rawPath = routePath === "/" ? "/index.html" : routePath;
+  const filePath = path.normalize(path.join(publicDir, rawPath));
 
   if (!filePath.startsWith(publicDir)) {
     res.writeHead(403);
@@ -410,18 +498,35 @@ async function serveStatic(req, res) {
     res.writeHead(200, {
       "Content-Type": contentTypes[ext] || "application/octet-stream"
     });
-    res.end(file);
+    res.end(ext === ".html" ? renderIndexHtml(file) : file);
   } catch (error) {
     const fallback = await fs.readFile(path.join(publicDir, "index.html"));
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8"
     });
-    res.end(fallback);
+    res.end(renderIndexHtml(fallback));
   }
 }
 
 const server = http.createServer(async (req, res) => {
-  if (await handleApi(req, res)) {
+  const context = getRequestContext(req);
+
+  if (context.needsBaseRedirect) {
+    sendRedirect(res, `${basePath}/${context.search}`);
+    return;
+  }
+
+  if (context.needsSlashRedirect) {
+    sendRedirect(res, `${basePath}/${context.search}`);
+    return;
+  }
+
+  if (!context.inBasePath) {
+    sendJson(res, 404, { error: "Not found" });
+    return;
+  }
+
+  if (await handleApi(req, res, context.routePath)) {
     return;
   }
 
@@ -430,7 +535,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  await serveStatic(req, res);
+  await serveStatic(context.routePath, res);
 });
 
 loadState().then(() => {
