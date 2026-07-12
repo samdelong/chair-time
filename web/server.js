@@ -8,6 +8,7 @@ const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "events.json");
 const apiToken = process.env.CHAIRTIME_API_TOKEN || "";
+const adjustmentThresholdMs = 5000;
 
 let appState = {
   chairStatus: {
@@ -15,6 +16,7 @@ let appState = {
     updatedAt: null,
     source: "startup"
   },
+  pendingStandUpAt: null,
   sessions: []
 };
 
@@ -41,6 +43,7 @@ function defaultState() {
       updatedAt: null,
       source: "startup"
     },
+    pendingStandUpAt: null,
     sessions: []
   };
 }
@@ -55,6 +58,7 @@ async function loadState() {
         ...defaultState().chairStatus,
         ...(saved.chairStatus || {})
       },
+      pendingStandUpAt: saved.pendingStandUpAt || null,
       sessions: Array.isArray(saved.sessions) ? saved.sessions : []
     };
   } catch (error) {
@@ -148,12 +152,44 @@ function addIntervalToDailyTotals(totals, startValue, endValue) {
   }
 }
 
+function getOpenSession() {
+  return [...appState.sessions]
+    .reverse()
+    .find((session) => !session.endedAt);
+}
+
+function isPendingStandUpExpired(now) {
+  if (!appState.pendingStandUpAt) {
+    return false;
+  }
+
+  const pendingStandUpTime = new Date(appState.pendingStandUpAt).getTime();
+  return Number.isFinite(pendingStandUpTime) &&
+    now.getTime() - pendingStandUpTime >= adjustmentThresholdMs;
+}
+
+function finalizeExpiredPendingStandUp(now) {
+  if (!isPendingStandUpExpired(now)) {
+    return;
+  }
+
+  const openSession = getOpenSession();
+  if (openSession) {
+    openSession.endedAt = appState.pendingStandUpAt;
+  }
+
+  appState.pendingStandUpAt = null;
+}
+
 function getClosedOrOpenSessions(now) {
+  const pendingStandUpExpired = isPendingStandUpExpired(now);
+
   return appState.sessions
     .filter((session) => session.startedAt)
     .map((session) => ({
       ...session,
-      endedAt: session.endedAt || now.toISOString()
+      endedAt: session.endedAt ||
+        (pendingStandUpExpired ? appState.pendingStandUpAt : now.toISOString())
     }));
 }
 
@@ -182,7 +218,7 @@ function getStats() {
     });
   }
 
-  const currentSession = appState.sessions.find((session) => !session.endedAt);
+  const currentSession = isPendingStandUpExpired(now) ? null : getOpenSession();
   const currentSessionSeconds = currentSession
     ? Math.round((now.getTime() - new Date(currentSession.startedAt).getTime()) / 1000)
     : 0;
@@ -214,10 +250,17 @@ function getStats() {
 }
 
 function updateChairStatus(sitting, source) {
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
   const wasSitting = appState.chairStatus.sitting;
 
-  if (sitting && !wasSitting) {
+  finalizeExpiredPendingStandUp(nowDate);
+
+  if (sitting) {
+    appState.pendingStandUpAt = null;
+  }
+
+  if (sitting && !getOpenSession()) {
     appState.sessions.push({
       startedAt: now,
       endedAt: null,
@@ -226,13 +269,7 @@ function updateChairStatus(sitting, source) {
   }
 
   if (!sitting && wasSitting) {
-    const openSession = [...appState.sessions]
-      .reverse()
-      .find((session) => !session.endedAt);
-
-    if (openSession) {
-      openSession.endedAt = now;
-    }
+    appState.pendingStandUpAt = now;
   }
 
   appState.chairStatus = {

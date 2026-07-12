@@ -44,6 +44,10 @@ Leave `API_TOKEN` empty unless the web server is configured to require one.
 The switch is expected between GPIO 15 and ground. The pin uses the Pico's
 internal pull-up, so a closed switch means the chair is occupied.
 
+The web server applies a 5-second adjustment threshold to sitting sessions. A
+brief stand-up signal still updates the live status immediately, but it will not
+end the current session unless it lasts at least 5 seconds.
+
 ## API
 
 Current state:
