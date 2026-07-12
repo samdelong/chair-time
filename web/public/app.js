@@ -7,7 +7,30 @@ const weekTotal = document.querySelector("#weekTotal");
 const weekBars = document.querySelector("#weekBars");
 const params = new URLSearchParams(window.location.search);
 const isWidget = params.get("widget") === "true";
-const basePath = window.CHAIRTIME_BASE_PATH || "";
+const basePath = getBasePath();
+
+function normalizeBasePath(value) {
+  if (!value || value === "__BASE_PATH__" || value === "/") {
+    return "";
+  }
+
+  return `/${value.replace(/^\/+|\/+$/g, "")}`;
+}
+
+function getBasePath() {
+  const configuredBasePath = normalizeBasePath(window.CHAIRTIME_BASE_PATH);
+  if (configuredBasePath) {
+    return configuredBasePath;
+  }
+
+  const script = document.currentScript;
+  if (!script || !script.src) {
+    return "";
+  }
+
+  const scriptPath = new URL(script.src, window.location.href).pathname;
+  return normalizeBasePath(scriptPath.replace(/\/app\.js$/, ""));
+}
 
 document.body.classList.toggle("is-widget", isWidget);
 

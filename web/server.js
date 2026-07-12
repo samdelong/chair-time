@@ -477,10 +477,6 @@ async function handleApi(req, res, routePath) {
   return false;
 }
 
-function renderIndexHtml(file) {
-  return file.toString("utf8").replaceAll("__BASE_PATH__", basePath);
-}
-
 async function serveStatic(routePath, res) {
   const rawPath = routePath === "/" ? "/index.html" : routePath;
   const filePath = path.normalize(path.join(publicDir, rawPath));
@@ -498,13 +494,13 @@ async function serveStatic(routePath, res) {
     res.writeHead(200, {
       "Content-Type": contentTypes[ext] || "application/octet-stream"
     });
-    res.end(ext === ".html" ? renderIndexHtml(file) : file);
+    res.end(file);
   } catch (error) {
     const fallback = await fs.readFile(path.join(publicDir, "index.html"));
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8"
     });
-    res.end(renderIndexHtml(fallback));
+    res.end(fallback);
   }
 }
 
