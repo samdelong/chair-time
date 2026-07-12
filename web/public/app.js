@@ -14,7 +14,7 @@ if (isWidget) {
   document.title = "Chair Time Widget";
 }
 
-function relativeTime(value) {
+function relativeTime(value, label = "Updated") {
   if (!value) {
     return "Last signal pending";
   }
@@ -23,19 +23,19 @@ function relativeTime(value) {
   const seconds = Math.max(0, Math.round((Date.now() - updated) / 1000));
 
   if (seconds < 5) {
-    return "Updated just now";
+    return `${label} just now`;
   }
 
   if (seconds < 60) {
-    return `Updated ${seconds} seconds ago`;
+    return `${label} ${seconds} seconds ago`;
   }
 
   const minutes = Math.round(seconds / 60);
   if (minutes === 1) {
-    return "Updated 1 minute ago";
+    return `${label} 1 minute ago`;
   }
 
-  return `Updated ${minutes} minutes ago`;
+  return `${label} ${minutes} minutes ago`;
 }
 
 function formatDuration(seconds) {
@@ -72,8 +72,17 @@ function formatSittingLine(seconds) {
 }
 
 function render(status, stats) {
-  document.body.classList.toggle("is-sitting", status.sitting);
-  document.body.classList.toggle("is-away", !status.sitting);
+  const sensorStale = Boolean(stats.sensor && stats.sensor.stale);
+
+  document.body.classList.toggle("is-stale", sensorStale);
+  document.body.classList.toggle("is-sitting", status.sitting && !sensorStale);
+  document.body.classList.toggle("is-away", !status.sitting && !sensorStale);
+
+  if (sensorStale) {
+    headline.textContent = "Chair signal disconnected.";
+    subline.textContent = relativeTime(stats.sensor.lastSeenAt, "Last heartbeat");
+    return;
+  }
 
   headline.textContent = status.sitting
     ? "Sam is in his chair!"

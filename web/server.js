@@ -9,6 +9,7 @@ const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "events.json");
 const apiToken = process.env.CHAIRTIME_API_TOKEN || "";
 const adjustmentThresholdMs = 5000;
+const heartbeatTimeoutMs = 30000;
 
 let appState = {
   chairStatus: {
@@ -16,6 +17,7 @@ let appState = {
     updatedAt: null,
     source: "startup"
   },
+  lastHeartbeatAt: null,
   pendingStandUpAt: null,
   sessions: []
 };
@@ -43,6 +45,7 @@ function defaultState() {
       updatedAt: null,
       source: "startup"
     },
+    lastHeartbeatAt: null,
     pendingStandUpAt: null,
     sessions: []
   };
@@ -58,6 +61,7 @@ async function loadState() {
         ...defaultState().chairStatus,
         ...(saved.chairStatus || {})
       },
+      lastHeartbeatAt: saved.lastHeartbeatAt || null,
       pendingStandUpAt: saved.pendingStandUpAt || null,
       sessions: Array.isArray(saved.sessions) ? saved.sessions : []
     };
@@ -181,14 +185,64 @@ function finalizeExpiredPendingStandUp(now) {
   appState.pendingStandUpAt = null;
 }
 
+function getLastSignalAt() {
+  return appState.lastHeartbeatAt || appState.chairStatus.updatedAt;
+}
+
+function getSensorStaleCutoff(now) {
+  const lastSignalAt = getLastSignalAt();
+  if (!lastSignalAt) {
+    return null;
+  }
+
+  const lastSignalTime = new Date(lastSignalAt).getTime();
+  if (!Number.isFinite(lastSignalTime)) {
+    return null;
+  }
+
+  if (now.getTime() - lastSignalTime < heartbeatTimeoutMs) {
+    return null;
+  }
+
+  return new Date(lastSignalTime + heartbeatTimeoutMs).toISOString();
+}
+
+function getSensorStatus(now) {
+  const lastSeenAt = getLastSignalAt();
+  const staleCutoff = getSensorStaleCutoff(now);
+
+  return {
+    lastSeenAt,
+    heartbeatTimeoutSeconds: heartbeatTimeoutMs / 1000,
+    stale: Boolean(staleCutoff),
+    staleSince: staleCutoff
+  };
+}
+
+function finalizeExpiredSensor(now) {
+  const staleCutoff = getSensorStaleCutoff(now);
+  if (!staleCutoff) {
+    return;
+  }
+
+  const openSession = getOpenSession();
+  if (openSession) {
+    openSession.endedAt = staleCutoff;
+  }
+
+  appState.pendingStandUpAt = null;
+}
+
 function getClosedOrOpenSessions(now) {
   const pendingStandUpExpired = isPendingStandUpExpired(now);
+  const staleCutoff = getSensorStaleCutoff(now);
 
   return appState.sessions
     .filter((session) => session.startedAt)
     .map((session) => ({
       ...session,
       endedAt: session.endedAt ||
+        staleCutoff ||
         (pendingStandUpExpired ? appState.pendingStandUpAt : now.toISOString())
     }));
 }
@@ -218,7 +272,8 @@ function getStats() {
     });
   }
 
-  const currentSession = isPendingStandUpExpired(now) ? null : getOpenSession();
+  const sensor = getSensorStatus(now);
+  const currentSession = sensor.stale || isPendingStandUpExpired(now) ? null : getOpenSession();
   const currentSessionSeconds = currentSession
     ? Math.round((now.getTime() - new Date(currentSession.startedAt).getTime()) / 1000)
     : 0;
@@ -238,6 +293,7 @@ function getStats() {
 
   return {
     status: appState.chairStatus,
+    sensor,
     generatedAt: now.toISOString(),
     todaySeconds: Math.round(totals.get(todayKey) || 0),
     currentSessionSeconds,
@@ -254,7 +310,10 @@ function updateChairStatus(sitting, source) {
   const now = nowDate.toISOString();
   const wasSitting = appState.chairStatus.sitting;
 
+  finalizeExpiredSensor(nowDate);
   finalizeExpiredPendingStandUp(nowDate);
+
+  appState.lastHeartbeatAt = now;
 
   if (sitting) {
     appState.pendingStandUpAt = null;
@@ -281,7 +340,10 @@ function updateChairStatus(sitting, source) {
 
 async function handleApi(req, res) {
   if (req.method === "GET" && req.url === "/api/status") {
-    sendJson(res, 200, appState.chairStatus);
+    sendJson(res, 200, {
+      ...appState.chairStatus,
+      sensor: getSensorStatus(new Date())
+    });
     return true;
   }
 

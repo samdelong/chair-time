@@ -51,6 +51,15 @@ The API also accepts event names that map naturally to the seat switch:
 { "event": "stood_up", "source": "pico-w" }
 ```
 
+The Pico also sends heartbeat posts to the same endpoint:
+
+```json
+{ "sitting": true, "source": "pico-w", "heartbeat": true }
+```
+
+If the server has not seen a heartbeat or status update for 30 seconds, it marks
+the sensor stale and stops counting any open sitting session.
+
 For public hosting, set `CHAIRTIME_API_TOKEN` and send it from the Pico as a bearer token:
 
 ```http

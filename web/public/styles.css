@@ -34,6 +34,13 @@ body.is-sitting {
     linear-gradient(135deg, #0d7a3c 0%, #18a957 52%, #6bd36f 100%);
 }
 
+body.is-stale {
+  color: #f7fff9;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.08), transparent 24rem),
+    linear-gradient(135deg, #101820 0%, #24313a 58%, #07090c 100%);
+}
+
 .stage {
   display: grid;
   grid-template-columns: minmax(24rem, 0.9fr) minmax(22rem, 1.1fr);
@@ -86,6 +93,11 @@ body.is-sitting {
   background: #d9ff7a;
   box-shadow: 0 0 2.8rem rgba(217, 255, 122, 0.95);
   transform: scale(1.12);
+}
+
+.is-stale .signal span {
+  background: #f59e0b;
+  box-shadow: 0 0 2.4rem rgba(245, 158, 11, 0.82);
 }
 
 .label {
@@ -221,6 +233,12 @@ h1 {
   background:
     radial-gradient(circle at 12% 0%, rgba(230, 255, 221, 0.34), transparent 11rem),
     linear-gradient(135deg, #0d7a3c 0%, #18a957 100%);
+}
+
+.is-widget.is-stale {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.09), transparent 11rem),
+    linear-gradient(135deg, #101820 0%, #24313a 100%);
 }
 
 .is-widget .stage {

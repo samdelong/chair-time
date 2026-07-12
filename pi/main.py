@@ -14,6 +14,7 @@ SENSOR_PIN = 15
 DEBOUNCE_MS = 30
 POLL_MS = 10
 RECONNECT_SECONDS = 5
+HEARTBEAT_SECONDS = 10
 
 sensor = Pin(SENSOR_PIN, Pin.IN, Pin.PULL_UP)
 wifi = network.WLAN(network.STA_IF)
@@ -38,7 +39,7 @@ def connect_wifi():
     return False
 
 
-def send_status(occupied):
+def send_status(occupied, heartbeat=False):
     if not connect_wifi():
         return False
 
@@ -46,15 +47,25 @@ def send_status(occupied):
     if API_TOKEN:
         headers["Authorization"] = "Bearer " + API_TOKEN
 
+    payload = {
+        "sitting": occupied,
+        "source": "pico-w-2",
+    }
+    if heartbeat:
+        payload["heartbeat"] = True
+
     response = None
     try:
         response = requests.post(
             API_URL,
-            json={"sitting": occupied, "source": "pico-w-2"},
+            json=payload,
             headers=headers,
         )
         if 200 <= response.status_code < 300:
-            print("Web UI updated:", "occupied" if occupied else "empty")
+            print(
+                "Heartbeat sent:" if heartbeat else "Web UI updated:",
+                "occupied" if occupied else "empty",
+            )
             return True
 
         print("Web UI returned HTTP", response.status_code)
@@ -76,6 +87,7 @@ def read_occupied():
 
 previous = None
 pending = read_occupied()
+last_heartbeat = time.ticks_ms()
 
 while True:
     occupied = read_occupied()
@@ -86,9 +98,20 @@ while True:
     if pending is not None and send_status(pending):
         previous = pending
         pending = None
+        last_heartbeat = time.ticks_ms()
+
+    if (
+        pending is None
+        and occupied is not None
+        and time.ticks_diff(time.ticks_ms(), last_heartbeat) >= HEARTBEAT_SECONDS * 1000
+    ):
+        if send_status(occupied, heartbeat=True):
+            previous = occupied
+            last_heartbeat = time.ticks_ms()
+        else:
+            pending = occupied
 
     if pending is not None:
         time.sleep(RECONNECT_SECONDS)
     else:
         time.sleep_ms(POLL_MS)
-

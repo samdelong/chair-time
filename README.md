@@ -48,6 +48,10 @@ The web server applies a 5-second adjustment threshold to sitting sessions. A
 brief stand-up signal still updates the live status immediately, but it will not
 end the current session unless it lasts at least 5 seconds.
 
+The Pico sends a heartbeat every 10 seconds with the current sensor state. If the
+server has not seen a heartbeat or status update for 30 seconds, it marks the
+chair signal disconnected and stops counting any open sitting session.
+
 ## API
 
 Current state:
