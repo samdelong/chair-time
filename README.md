@@ -1,7 +1,7 @@
 # Chair Time
 
-This is a small chair occupancy tracker. A switch connected to a Pico W 2
-reports whether the chair is occupied, and the web page shows the current state
+Chair Time is a small chair occupancy tracker. A switch connected to a Pico W 2
+reports whether the chair is occupied, and a small web page shows the current sit state
 along with a few basic sitting-time stats.
 
 ## What's in here
