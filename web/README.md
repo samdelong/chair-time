@@ -14,6 +14,14 @@ export PORT=8080
 npm start
 ```
 
+## Widget embed
+
+Load the compact iframe view with `?widget=true`:
+
+```html
+<iframe src="http://localhost:4280/?widget=true" title="Chair Time"></iframe>
+```
+
 ## API
 
 Read the current chair status:
