@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chair Time</title>
+    <meta name="theme-color" content="#07110d">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body class="is-away">
+    <main class="stage" aria-live="polite">
+      <section class="left-rail" aria-label="Current chair status">
+        <div class="status">
+          <div class="signal" aria-hidden="true">
+            <span></span>
+          </div>
+
+          <p class="label">Chair Time</p>
+          <h1 id="headline">Sam is not in his chair.</h1>
+          <p id="subline" class="subline">Last signal pending</p>
+        </div>
+
+        <section class="stats" aria-label="Chair stats">
+          <div class="stat">
+            <span>Today</span>
+            <strong id="todayHours">0m</strong>
+          </div>
+          <div class="stat">
+            <span>Current</span>
+            <strong id="currentSession">0m</strong>
+          </div>
+          <div class="stat">
+            <span>7-day avg</span>
+            <strong id="averageHours">0m</strong>
+          </div>
+          <div class="stat">
+            <span>Longest</span>
+            <strong id="longestSession">0m</strong>
+          </div>
+        </section>
+      </section>
+
+      <section class="week" aria-label="Last seven days">
+        <div class="week-header">
+          <span>Last 7 days</span>
+          <strong id="weekTotal">0m total</strong>
+        </div>
+        <div id="weekBars" class="bars"></div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
