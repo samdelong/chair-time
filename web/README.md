@@ -7,8 +7,12 @@ A tiny status site that shows whether Sam is sitting in his chair.
 ```sh
 npm start
 ```
-
-Open `http://localhost:4280`.
+or
+```sh
+export HOST=127.0.0.1
+export PORT=8080
+npm start
+```
 
 ## API
 

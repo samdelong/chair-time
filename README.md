@@ -15,12 +15,12 @@ along with a few basic sitting-time stats.
 You'll need Node 18 or newer.
 
 ```sh
-cd web
+#optional host and port
+export HOST=0.0.0.0
+export PORT=4280
 npm start
 ```
 
-The page will be at [http://localhost:4280](http://localhost:4280). The server
-listens on the local network so the Pico can reach it.
 
 ## Setting up the Pico
 
