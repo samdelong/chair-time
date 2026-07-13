@@ -162,15 +162,8 @@ function renderWidgetChart(stats, maxSeconds) {
   const line = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
-  const area = [
-    `M ${points[0].x} ${height - padding}`,
-    ...points.map((point) => `L ${point.x} ${point.y}`),
-    `L ${points[points.length - 1].x} ${height - padding}`,
-    "Z"
-  ].join(" ");
   const svg = document.createElementNS(svgNamespace, "svg");
   const title = document.createElementNS(svgNamespace, "title");
-  const areaPath = document.createElementNS(svgNamespace, "path");
   const linePath = document.createElementNS(svgNamespace, "path");
   const labelRow = document.createElement("div");
 
@@ -179,22 +172,10 @@ function renderWidgetChart(stats, maxSeconds) {
   svg.setAttribute("role", "img");
   title.textContent = "Sitting time over the last seven days";
 
-  areaPath.setAttribute("class", "widget-chart-area");
-  areaPath.setAttribute("d", area);
-
   linePath.setAttribute("class", "widget-chart-line");
   linePath.setAttribute("d", line);
 
-  svg.append(title, areaPath, linePath);
-
-  for (const point of points) {
-    const dot = document.createElementNS(svgNamespace, "circle");
-    dot.setAttribute("class", "widget-chart-dot");
-    dot.setAttribute("cx", point.x);
-    dot.setAttribute("cy", point.y);
-    dot.setAttribute("r", point.day.seconds > 0 ? "1.8" : "1.2");
-    svg.append(dot);
-  }
+  svg.append(title, linePath);
 
   labelRow.className = "widget-chart-labels";
   const startLabel = document.createElement("span");
