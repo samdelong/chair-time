@@ -79,11 +79,9 @@ curl -X POST http://localhost:4280/api/status \
 
 ## Network access
 
-Chairtime is meant to run over a local network. If the Pico and server are not on
-the same network, Tailscale is the easiest way to connect them without exposing
-the server directly to the internet.
+Chairtime is meant to run over a local network.
 
-If you really want to run it over the public internet, set
+If you really want to run it over the public internet, you may want to set
 `CHAIRTIME_API_TOKEN` on the server and `API_TOKEN` in the
 Pico's `config.py`. The read-only status endpoints remain public unless you add separate
 authentication for them.
