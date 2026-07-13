@@ -169,11 +169,13 @@ function renderWidgetChart(stats, maxSeconds) {
 
   svg.setAttribute("class", "widget-chart");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
   title.textContent = "Sitting time over the last seven days";
 
   linePath.setAttribute("class", "widget-chart-line");
   linePath.setAttribute("d", line);
+  linePath.setAttribute("vector-effect", "non-scaling-stroke");
 
   svg.append(title, linePath);
 
