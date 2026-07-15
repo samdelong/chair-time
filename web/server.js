@@ -209,10 +209,6 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
-function startOfLocalDay(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
 function nextLocalDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 }
@@ -362,11 +358,18 @@ function getStats() {
   const currentSessionSeconds = currentSession
     ? Math.round((now.getTime() - new Date(currentSession.startedAt).getTime()) / 1000)
     : 0;
-  const todayStart = startOfLocalDay(now);
-  const todaySessionCount = appState.sessions.filter((session) => {
-    const startedAt = new Date(session.startedAt);
-    return startedAt >= todayStart && localDateKey(startedAt) === todayKey;
+  const todaySitDownCount = appState.sessions.filter((session) => {
+    return session.startedAt && localDateKey(new Date(session.startedAt)) === todayKey;
   }).length;
+  const todayStandUpCount = appState.sessions.filter((session) => {
+    return session.endedAt && localDateKey(new Date(session.endedAt)) === todayKey;
+  }).length + (
+    isPendingStandUpExpired(now) &&
+    appState.pendingStandUpAt &&
+    localDateKey(new Date(appState.pendingStandUpAt)) === todayKey
+      ? 1
+      : 0
+  );
   const longestSessionSeconds = sessions.reduce((longest, session) => {
     const seconds = Math.max(
       0,
@@ -380,9 +383,14 @@ function getStats() {
     status: appState.chairStatus,
     sensor,
     generatedAt: now.toISOString(),
+    adjustmentThresholdSeconds: adjustmentThresholdMs / 1000,
+    pendingStandUpAt: appState.pendingStandUpAt,
+    sessions: appState.sessions,
     todaySeconds: Math.round(totals.get(todayKey) || 0),
     currentSessionSeconds,
-    todaySessionCount,
+    todaySessionCount: todaySitDownCount,
+    todaySitDownCount,
+    todayStandUpCount,
     longestSessionSeconds,
     weekSeconds,
     averageDailySeconds: Math.round(weekSeconds / 7),

@@ -1,6 +1,7 @@
 const headline = document.querySelector("#headline");
 const subline = document.querySelector("#subline");
 const todayHours = document.querySelector("#todayHours");
+const todayTransitions = document.querySelector("#todayTransitions");
 const averageHours = document.querySelector("#averageHours");
 const longestSession = document.querySelector("#longestSession");
 const weekTotal = document.querySelector("#weekTotal");
@@ -95,6 +96,116 @@ function formatSittingLine(seconds) {
   return `Sitting for ${minutes} minutes`;
 }
 
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function nextLocalDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+}
+
+function formatShortDate(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric"
+  }).format(new Date(year, month - 1, day));
+}
+
+function addIntervalToDailyTotals(totals, startValue, endValue) {
+  let cursor = new Date(startValue);
+  const end = new Date(endValue);
+
+  while (cursor < end) {
+    const boundary = nextLocalDay(cursor);
+    const segmentEnd = boundary < end ? boundary : end;
+    const key = localDateKey(cursor);
+    const seconds = Math.max(0, (segmentEnd.getTime() - cursor.getTime()) / 1000);
+
+    totals.set(key, (totals.get(key) || 0) + seconds);
+    cursor = segmentEnd;
+  }
+}
+
+function getEffectiveSessionEnd(session, stats, now) {
+  if (session.endedAt) {
+    return session.endedAt;
+  }
+
+  if (stats.sensor && stats.sensor.staleSince) {
+    return stats.sensor.staleSince;
+  }
+
+  if (stats.pendingStandUpAt) {
+    const pendingStandUpTime = new Date(stats.pendingStandUpAt).getTime();
+    const thresholdMs = (stats.adjustmentThresholdSeconds || 5) * 1000;
+
+    if (Number.isFinite(pendingStandUpTime) && now.getTime() - pendingStandUpTime >= thresholdMs) {
+      return stats.pendingStandUpAt;
+    }
+  }
+
+  return now.toISOString();
+}
+
+function withLocalDisplayStats(stats) {
+  if (!Array.isArray(stats.sessions)) {
+    return stats;
+  }
+
+  const now = new Date(stats.generatedAt || Date.now());
+  const totals = new Map();
+  const sessions = stats.sessions.filter((session) => session.startedAt);
+
+  for (const session of sessions) {
+    addIntervalToDailyTotals(totals, session.startedAt, getEffectiveSessionEnd(session, stats, now));
+  }
+
+  const todayKey = localDateKey(now);
+  const days = [];
+
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    const date = localDateKey(day);
+    const seconds = Math.round(totals.get(date) || 0);
+
+    days.push({
+      date,
+      label: formatShortDate(date),
+      seconds,
+      hours: seconds / 3600
+    });
+  }
+
+  const todaySitDownCount = sessions.filter((session) => {
+    return localDateKey(new Date(session.startedAt)) === todayKey;
+  }).length;
+  const todayStandUpCount = sessions.filter((session) => {
+    return session.endedAt && localDateKey(new Date(session.endedAt)) === todayKey;
+  }).length + (
+    stats.pendingStandUpAt &&
+    localDateKey(new Date(stats.pendingStandUpAt)) === todayKey &&
+    getEffectiveSessionEnd({ startedAt: stats.pendingStandUpAt }, stats, now) === stats.pendingStandUpAt
+      ? 1
+      : 0
+  );
+  const weekSeconds = days.reduce((total, day) => total + day.seconds, 0);
+
+  return {
+    ...stats,
+    todaySeconds: Math.round(totals.get(todayKey) || 0),
+    todaySessionCount: todaySitDownCount,
+    todaySitDownCount,
+    todayStandUpCount,
+    weekSeconds,
+    averageDailySeconds: Math.round(weekSeconds / 7),
+    days
+  };
+}
+
 function render(status, stats) {
   const sensorStale = Boolean(stats.sensor && stats.sensor.stale);
 
@@ -120,6 +231,7 @@ function renderStats(stats) {
   const maxSeconds = Math.max(3600, ...stats.days.map((day) => day.seconds));
 
   todayHours.textContent = formatDuration(stats.todaySeconds);
+  todayTransitions.textContent = `${stats.todaySitDownCount || 0} / ${stats.todayStandUpCount || 0}`;
   averageHours.textContent = formatDuration(stats.averageDailySeconds);
   longestSession.textContent = formatDuration(stats.longestSessionSeconds);
   weekTotal.textContent = `${formatDuration(stats.weekSeconds)} total`;
@@ -195,7 +307,7 @@ async function fetchStatus() {
       throw new Error("Could not load status");
     }
 
-    const stats = await response.json();
+    const stats = withLocalDisplayStats(await response.json());
     render(stats.status, stats);
     renderStats(stats);
   } catch (error) {
